@@ -65,15 +65,9 @@ class SFM_AI():
             forces_.append(force)
             nums.append(num)
         # sort out
-        nums = torch.tensor(nums)
-        _,indices = torch.sort(nums)
-        poses = []
-        forces = []
-        for n in indices:
-            poses.append(poses_[n])
-            forces.append(forces_[n])
-        poses = torch.tensor(poses)
-        forces = torch.tensor(forces)
+        _,indices = torch.sort(torch.tensor(nums))
+        poses = torch.tensor(poses_)[indices]
+        forces = torch.tensor(forces_)[indices]
         return poses, forces
         
 
@@ -84,7 +78,7 @@ if __name__ == '__main__':
     # w/o threading
     num_threads = 0
     future_horizon = 12
-    bs = 100
+    bs = 1000
     neighb_num = 10
     agent_state = torch.rand((bs, 2))
     neighb_state = torch.rand((bs, neighb_num, 2))
