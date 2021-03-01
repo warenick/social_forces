@@ -3,7 +3,7 @@ from Param import Param
 from WorkerThread import WorkerThread
 import torch
 import queue
-from threading import Thread, Event
+from threading import Thread
 import time
 
 
@@ -11,14 +11,15 @@ class SFM_AI():
     def __init__(self):
         self.param = Param()
         self.sfm = SFM(self.param)
-    # agent_state shape: bs, 2 torch.tensor
-    # neighb_state shape  list of len bs, each elem is tensor with shape (n,2)
-    # agent_vel: bs, 2 torch.tensor
-    # neighb_vel:  list of len bs, each elem is tensor with shape (n,2)
-    # agent_goal: bs, 2 torch.tensor
-    # neighb_goal list of len bs, each elem is tensor with shape (n,2)
-    # return tensor(bs, future_horizon, 2),   tensor(bs, future_horizon,  4) (edited)
+
     def get_sfm_predictions(self, agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, future_horizon=12, num_threads=0):
+        # agent_state shape: bs, 2 torch.tensor
+        # neighb_state shape  list of len bs, each elem is tensor with shape (n,2)
+        # agent_vel: bs, 2 torch.tensor
+        # neighb_vel:  list of len bs, each elem is tensor with shape (n,2)
+        # agent_goal: bs, 2 torch.tensor
+        # neighb_goal list of len bs, each elem is tensor with shape (n,2)
+        # return tensor(bs, future_horizon, 2),   tensor(bs, future_horizon,  4) (edited)
         agent_f_state = torch.cat((agent_state, agent_vel), dim=1)
         neighb_f_state = torch.cat((neighb_state, neighb_vel), dim=2)
         state = torch.cat((agent_f_state.unsqueeze(1), neighb_f_state), dim=1)
@@ -75,8 +76,6 @@ class SFM_AI():
 
 if __name__ == '__main__':
     sfm_ai = SFM_AI()
-    # w/o threading
-    num_threads = 0
     future_horizon = 12
     bs = 1000
     neighb_num = 10
@@ -86,16 +85,16 @@ if __name__ == '__main__':
     neighb_vel = torch.rand((bs, neighb_num, 2))
     agent_goal = torch.rand((bs, 2))
     neighb_goal = torch.rand((bs, neighb_num, 2))
+    # w/o threading
     start = time.time()
     poses, forces = sfm_ai.get_sfm_predictions(
-        agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, future_horizon, num_threads)
+        agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, future_horizon, num_threads =0)
     print("working time "+str(time.time()-start))
     print("w/o threading ok")
     # w threading
-    num_threads = 10
     start = time.time()
     poses, forces = sfm_ai.get_sfm_predictions(
-        agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, future_horizon, num_threads)
+        agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, future_horizon, num_threads=6)
     print("working time "+str(time.time()-start))
     print("w threading ok")
     exit()
