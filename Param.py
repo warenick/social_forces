@@ -45,7 +45,7 @@ class Param:
         self.a = 0.025
         self.b = 1  #
         self.e = 0.001  # min speed fo blame
-        self.robot_speed = .20
+        self.robot_speed = 1.20
 
 
         # self.generateMatrices()
