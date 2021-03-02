@@ -1,3 +1,10 @@
+import sys
+import os
+# sys.path.insert(0, "social_forces/")
+# sys.path.insert(0, "../")
+
+sys.path.append(os.path.abspath('../social_forces'))
+# sys.path.append(os.path.abspath('./'))
 from SFM import SFM
 from Param import Param
 from WorkerThread import WorkerThread
@@ -20,6 +27,12 @@ class SFM_AI():
         # agent_goal: bs, 2 torch.tensor
         # neighb_goal list of len bs, each elem is tensor with shape (n,2)
         # return tensor(bs, future_horizon, 2),   tensor(bs, future_horizon,  4) (edited)
+        assert agent_state.ndim == 2
+        assert agent_vel.ndim == 2
+        assert neighb_state.ndim == 3
+        assert neighb_vel.ndim == 3
+        assert agent_goal.ndim == 2
+        assert neighb_goal.ndim == 3
         agent_f_state = torch.cat((agent_state, agent_vel), dim=1)
         neighb_f_state = torch.cat((neighb_state, neighb_vel), dim=2)
         state = torch.cat((agent_f_state.unsqueeze(1), neighb_f_state), dim=1)
