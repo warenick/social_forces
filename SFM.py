@@ -4,9 +4,10 @@ from RepulsiveForces import RepulsiveForces
 
 
 class SFM:
-    def __init__(self, param):
+    def __init__(self, param,device='cpu'):
         self.param = param
-        self.rep_f = RepulsiveForces(self.param)
+        self.rep_f = RepulsiveForces(self.param, device=device)
+        self.device = device
 
     def pose_propagation(self, force, state):
         DT = self.param.DT
@@ -73,7 +74,7 @@ class SFM:
 
     def force_goal(self, input_state, goal):
         num_ped = len(input_state)
-        k = self.param.socForcePersonPerson["k"] * torch.ones(num_ped)
+        k = self.param.socForcePersonPerson["k"] * torch.ones(num_ped,device=self.device)
         k[0] = self.param.socForceRobotPerson["k"]
         k  = k.view(-1,1)
 

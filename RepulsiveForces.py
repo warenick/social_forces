@@ -4,7 +4,7 @@ import math
 
 
 class RepulsiveForces():
-    def __init__(self, param):
+    def __init__(self, param,device='cpu'):
         self.param = param
         self.num_ped = None
         self.aux1 = None
@@ -13,12 +13,7 @@ class RepulsiveForces():
         self.indexes = None
         self.uneven_indexes = None
         self.even_indexes = None
-        self.device = None
-        if torch.cuda.is_available():
-            self.device = torch.device("cuda:0")
-        else:
-            self.device = torch.device("cpu")
-        self.device = torch.device("cpu")
+        self.device = device
 
     def change_num_of_ped(self, new_num):
         self.num_ped = new_num
@@ -33,13 +28,9 @@ class RepulsiveForces():
 
     def generate_aux_matrices(self):
         if self.aux1 is None:
-            self.aux1 = torch.tensor(([1., 0.], [0., 1.]))
-            if self.device is not None:
-                self.aux1 = self.aux1.to(self.device)
+            self.aux1 = torch.tensor(([1., 0.], [0., 1.]),device=self.device)
             for i in range(0, self.num_ped):
-                temp = torch.tensor(([1., 0.], [0., 1.]))
-                if self.device is not None:
-                    temp = temp.to(self.device)
+                temp = torch.tensor(([1., 0.], [0., 1.]),device=self.device)
                 self.aux1 = torch.cat((self.aux1, temp), dim=1)
             '''
                 e.g. : state   [[1,  0]
@@ -53,9 +44,7 @@ class RepulsiveForces():
                                 [0, -1, 0, -1, 0, -1, 0, -1]]
             '''
         if self.auxullary is None:
-            self.auxullary = torch.zeros(self.num_ped+1, (self.num_ped+1)*2)
-            if self.device is not None:
-                self.auxullary = self.auxullary.to(self.device)
+            self.auxullary = torch.zeros(self.num_ped+1, (self.num_ped+1)*2,device=self.device)
             for i in range(self.num_ped+1):
                 self.auxullary[i, 2*i] = 1.
                 self.auxullary[i, 2*i+1] = 1.
@@ -69,9 +58,7 @@ class RepulsiveForces():
                 '''
         if self.aux is None:
             self.aux = self.auxullary.t()
-            if self.device is not None:
-                self.aux = self.aux.to(self.device)
-
+            
         if self.indexes is None:
             self.indexes = np.linspace(
                 0., (self.num_ped+1)*2, ((self.num_ped+1)*2+1))
@@ -87,16 +74,16 @@ class RepulsiveForces():
             self.change_num_of_ped(num_ped)
 
         pr = self.param.socForcePersonPerson["d"] * \
-            torch.ones(num_ped+1, num_ped+1)
+            torch.ones(num_ped+1, num_ped+1,device=self.device)
         pr[0, :] = self.param.socForceRobotPerson["d"]
         pr[:, 0] = self.param.socForceRobotPerson["d"]
         pm = self.param.ped_mass
         betta = self.param.socForcePersonPerson["B"] * \
-            torch.ones(num_ped+1, num_ped+1)
+            torch.ones(num_ped+1, num_ped+1,device=self.device)
         betta[0, :] = self.param.socForceRobotPerson["B"]
         betta[:, 0] = self.param.socForceRobotPerson["B"]
         alpha = self.param.socForcePersonPerson["A"] * \
-            (1 - torch.eye(self.num_ped+1, self.num_ped+1))
+            (1 - torch.eye(self.num_ped+1, self.num_ped+1,device=self.device))
         alpha[0, :] = self.param.socForceRobotPerson["A"]
         alpha[:, 0] = self.param.socForceRobotPerson["A"]
 
@@ -116,11 +103,8 @@ class RepulsiveForces():
         dist_squared = delta_pose ** 2
         dist = (dist_squared.matmul(self.aux))
         # aka distance
-        temp = torch.eye(dist.shape[0])
-        if self.device is not None:
-            temp = temp.to(self.device)
-        dist = torch.sqrt(dist) + 10000000 * \
-            temp  # TODO: deal with 1/0,
+        temp = torch.eye(dist.shape[0],device=self.device)
+        dist = torch.sqrt(dist) + 10000000 * temp  # TODO: deal with 1/0,
         force_amplitude = alpha * torch.exp((pr - dist) / betta)
         force = force_amplitude.matmul(
             self.auxullary)*(delta_pose / (dist).matmul(self.auxullary)) # * anisotropy
