@@ -77,7 +77,7 @@ class SFM_AI():
 if __name__ == '__main__':
     sfm_ai = SFM_AI()
     future_horizon = 12
-    bs = 1000
+    bs = 256
     neighb_num = 10
     agent_state = torch.rand((bs, 2))
     neighb_state = torch.rand((bs, neighb_num, 2))
