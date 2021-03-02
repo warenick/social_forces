@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath('../social_forces'))
 from SFM import SFM
 from Param import Param
-from WorkerThread import WorkerThread
+from WorkerThread import WorkerThread, WorkerPThread
 import torch
 import queue
 import time
@@ -71,7 +71,7 @@ class SFM_AI():
             # TODO: add avail
             in_queue.put((state[chunk],goals[chunk],future_horizon,chunk))
         for n in range(num_threads):
-            thread_pull.append(WorkerThread(SFM(self.param,dev),in_queue,out_queue))
+            thread_pull.append(WorkerPThread(SFM(self.param,dev),in_queue,out_queue))
             thread_pull[n].start()
         for thread in thread_pull:
             thread.join()
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     agent_goal = torch.rand((bs, 2),device =dev)
     neighb_goal = torch.rand((bs, neighb_num, 2),device =dev)
     neighb_avail = torch.ones(bs,neighb_num,device=dev,dtype=torch.bool)
-    neighb_avail = None
+    # neighb_avail = None
     # w/o threading
     start = time.time()
     poses, forces = sfm_ai.get_sfm_predictions(
