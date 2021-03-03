@@ -3,14 +3,15 @@ import os
 sys.path.append(os.path.abspath('../social_forces'))
 from SFM import SFM
 from Param import Param
-from WorkerThread import WorkerThread, WorkerPThread, WorkerThread2
+from WorkerThread import WorkerThread, WorkerPThread, WorkerThread2,WorkerThread3, func_thread
 import multiprocessing
 import torch
-
+from threading import Thread
+from multiprocessing.pool import ThreadPool, Pool
 from multiprocessing import Queue
 # import queue
 import time
-
+from itertools import product
 
 class SFM_AI():
     def __init__(self,device='cpu'):
@@ -72,30 +73,25 @@ class SFM_AI():
         # process in threads
         in_queue = Queue()
         out_queue = Queue()
-        thread_pull = []
         chunks = self.chunkIt(range(batch_size), num_threads)
         num = 0
+        chunk_data = []
         for chunk in chunks:
-            in_queue.put((state[chunk], goals[chunk], future_horizon, num))
+            chunk_data.append((state[chunk], goals[chunk], future_horizon, num, SFM(self.param,dev)))
             num+=1
-        for n in range(num_threads):
-            thread_pull.append(WorkerPThread(SFM(self.param,dev),in_queue,out_queue))
-            thread_pull[n].start()
-        # for thread in thread_pull:
-        #     thread.join()
+        return_val = []
+        with Pool() as pool:
+            return_val.append(pool.starmap(func_thread, chunk_data))
         poses_ = []
         forces_ = []
         nums = []
-
-        for chunk in range(num_threads):# dirty way
-            (pose,force,num) = out_queue.get()
+        for chunk in range(num_threads):
+            (pose,force,num) = return_val[0][chunk]
             poses_.append(pose)
             forces_.append(force)
             nums.append(num)
         # # sort out
         _,indices = torch.sort(torch.tensor(nums))
-        # poses_ = torch.tensor(poses_,device=dev)[indices] #suka expected sequence of length 167 at dim 1 (got 166)
-        # forces_ = torch.tensor(forces_,device=dev)[indices]
         sorted_poses_ = []
         sorted_forces_ = []
         for n in indices:
@@ -103,45 +99,7 @@ class SFM_AI():
             sorted_forces_.append(forces_[n])
         poses = torch.cat(sorted_poses_,dim=0)
         forces = torch.cat(sorted_forces_,dim=0)
-        for thread in thread_pull:
-            thread.join()
         return poses, forces
-        #         for chunk in range(batch_size):
-        #     in_queue.put((state[chunk],goals[chunk],future_horizon,chunk))
-        #     # in_queue.put((torch.cat((state[chunk],goals[chunk]), dim=1),future_horizon,chunk))
-        # # for _ in range(num_threads):
-        # #     in_queue.put(None)
-        # # chunks = self.chunkIt(range(batch_size), num_threads)
-        # # n = 0
-        # # for chunk in chunks:
-        # #     in_queue.put((state[chunk], goals[chunk], future_horizon, chunk, n))
-        # #     n+=1
-
-        # # start = time.time()
-        
-        # for n in range(num_threads):
-        #     thread_pull.append(WorkerThread(SFM(self.param,dev),in_queue,out_queue))
-        #     # thread_pull.append(WorkerPThread(SFM(self.param,dev),in_queue,out_queue))
-        #     thread_pull[n].start()
-        # # print("working in time1 "+str(time.time()-start))
-        # for thread in thread_pull:
-        #     thread.join()
-        # poses_ = []
-        # forces_ = []
-        # nums = []
-
-        # for chunk in range(out_queue.qsize()): #TODO: please check it qsize
-        #     (pose,force,num) = out_queue.get()
-        #     poses_.append(pose)
-        #     forces_.append(force)
-        #     nums.append(num)
-        # # sort out
-        # _,indices = torch.sort(torch.tensor(nums))
-        # poses = torch.tensor(poses_)[indices]
-        # forces = torch.tensor(forces_)[indices]
-
-        # return poses, forces
-
 
 
 if __name__ == '__main__':
