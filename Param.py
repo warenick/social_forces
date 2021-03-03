@@ -21,7 +21,7 @@ class Param:
         self.do_logging = 0
 
         self.area_size = 10
-        self.pedestrians_speed = 1.0
+        self.pedestrians_speed = 1.4
         self.robot_init_pose = torch.tensor(([1.5, 2.0]))
         self.look_ahead_seconds = 4
 
@@ -34,7 +34,7 @@ class Param:
         self.betta = 0.71
 
         # social force params
-        self.socForceRobotPerson = {"k": 2.3, "lambda": 0.59, "A": 3.66, "B": 0.79, "d": 0.65}
+        self.socForceRobotPerson = {"k": 10.3, "lambda": 0.59, "A": 3.66, "B": 0.79, "d": 0.65}
         self.socForcePersonPerson = {"k": 4.9, "lambda": 1., "A": 12., "B": 0.64, "d": 0.26}
         # self.socForcePersonPerson = {"k":5.5, "lambda":1.5, "A":8., "B":0.4,"d":0.01}
         # headed social force model additional params
@@ -45,7 +45,7 @@ class Param:
         self.a = 0.025
         self.b = 1  #
         self.e = 0.001  # min speed fo blame
-        self.robot_speed = 1.20
+        self.robot_speed = 1.50
 
 
         # self.generateMatrices()
