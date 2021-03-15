@@ -1,0 +1,3 @@
+[submodule "pedestrian_forecasting_dataloader"]
+	path = pedestrian_forecasting_dataloader
+	url = git@github.com:warenick/pedestrian_forecasting_dataloader.git
