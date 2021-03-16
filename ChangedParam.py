@@ -2,49 +2,40 @@ import torch
 
 
 class Param:
-    def __init__(self, device='cpu', num_ped=5):
+    def __init__(self, device='cpu', param_list):
         self.device = device
         self.loop_rate = 30.
         self.lr = 1e-4
 
-        self.num_ped = num_ped
-        self.optim_epochs = 1
-        self.number_of_layers = 15
-
+        self.num_ped = 5
+        
         # DISCTIB COEFFICIENTS
         self.goal_std_coef = 4.5
         self.pose_std_coef = 1.0
         self.velocity_std_coef = 2.0
 
-        self.do_visualization = 1
-        self.do_logging = 0
-
         self.area_size = 10
-        self.pedestrians_speed = 1.0
         self.robot_init_pose = torch.tensor(([1.5, 2.0]), device = self.device)
-        self.look_ahead_seconds = 4
-
-        # mpdm params
-        self.k = 2.3
+        
         self.DT = 0.4
-        self.alpha = 10.66
-
-        self.ped_mass = 60
-        self.betta = 0.71
-
         # social force params
-        self.socForceRobotPerson = {"k": 2.3, "lambda": 0.59, "A": 3.66, "B": 0.79, "d": 0.65}
-        self.socForcePersonPerson = {"k": 4.9, "lambda": 1., "A": 12., "B": 0.64, "d": 0.26}
+        pl = param_list
+        self.ped_mass = pl
+        self.pedestrians_speed = pl
+        self.robot_speed = pl
+        self.socForceRobotPerson = {"k": pl, "lambda": pl, "A": pl, "B": pl, "d": pl}
+        self.socForcePersonPerson = socForceRobotPerson
         # self.socForcePersonPerson = {"k":5.5, "lambda":1.5, "A":8., "B":0.4,"d":0.01}
-        # headed social force model additional params
-        self.k_angle = 0.0001
-        self.k_v_angle = 0.0005
-        # social force params
-
+        # self.ped_mass = 60
+        # self.pedestrians_speed = 1.0
+        # self.robot_speed = 1.20
+        # self.socForceRobotPerson = {"k": 2.3, "lambda": 0.59, "A": 3.66, "B": 0.79, "d": 0.65}
+        # self.socForcePersonPerson = {"k": 4.9, "lambda": 1., "A": 12., "B": 0.64, "d": 0.26}
+        
+        # cost param
         self.a = 0.025
         self.b = 1  #
         self.e = 0.001  # min speed fo blame
-        self.robot_speed = 1.20
 
         # self.generateMatrices()
         self.init_calcs()

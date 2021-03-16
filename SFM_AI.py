@@ -14,8 +14,10 @@ import time
 from itertools import product
 
 class SFM_AI():
-    def __init__(self,device='cpu'):
-        self.param = Param(device)
+    def __init__(self,param = None,device='cpu'):
+        self.param = param
+        if self.param is None:
+            self.param = Param(device)
         self.sfm = SFM(self.param, device)
 
     def chunkIt(self,a, n):
