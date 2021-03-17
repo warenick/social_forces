@@ -97,9 +97,16 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
         # pbar.set_postfix({'mean_ade': sum(ades)/len(ades)})
     # print('mean_ade', sum(ades)/len(ades))
     pbar.close()
-    ade = sum(ades)/len(ades)
-    fde = (sum(fdes)/len(fdes)).tolist()
-    dist = (sum(dists)/len(dists)).tolist()
+    try:
+        ade = sum(ades)/len(ades)
+        fde = (sum(fdes)/len(fdes)).tolist()
+        dist = (sum(dists)/len(dists)).tolist()
+    except:
+        print("dividing by zero")
+        ade = 10
+        fde = 10
+        dist = 10
+
     return ade, fde, dist
 
 
