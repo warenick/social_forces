@@ -2,7 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+optimisation/*
+optimise_data.txt
 # C extensions
 *.so
 

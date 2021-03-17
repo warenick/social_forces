@@ -1,8 +1,8 @@
 import torch
 
 
-class Param:
-    def __init__(self, device='cpu', param_list):
+class ChangedParam:
+    def __init__(self,  param_list, device='cpu'):
         self.device = device
         self.loop_rate = 30.
         self.lr = 1e-4
@@ -20,11 +20,11 @@ class Param:
         self.DT = 0.4
         # social force params
         pl = param_list
-        self.ped_mass = pl
-        self.pedestrians_speed = pl
-        self.robot_speed = pl
-        self.socForceRobotPerson = {"k": pl, "lambda": pl, "A": pl, "B": pl, "d": pl}
-        self.socForcePersonPerson = socForceRobotPerson
+        self.ped_mass = pl["ped_mass"]
+        self.pedestrians_speed = pl["pedestrians_speed"]
+        self.robot_speed = self.pedestrians_speed
+        self.socForceRobotPerson = {"k": pl["k"], "lambda": pl["lambda"], "A": pl["A"], "B": pl["B"], "d": pl["d"]}
+        self.socForcePersonPerson = self.socForceRobotPerson
         # self.socForcePersonPerson = {"k":5.5, "lambda":1.5, "A":8., "B":0.4,"d":0.01}
         # self.ped_mass = 60
         # self.pedestrians_speed = 1.0

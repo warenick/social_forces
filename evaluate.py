@@ -41,36 +41,24 @@ def distance(prediction, gt, tgt_avail=None):
         return 0
 
 
-def eval_file(path_,file,sfm_ai,dev='cpu'):
-    print("used files:")
-    print(file)
+def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
+    print("used files: ",file[0])
     dataset = DatasetFromTxt(path_, file, cfg)
     print("len dataset:", len(dataset))
     # dataloader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=12, collate_fn=collate_wrapper, pin_memory=True)
-    dataloader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=4, collate_fn=collate_wrapper, pin_memory=True)
-
-
-    # gp prediction
-    gp_model = AttGoalPredictor()
-    gp_model.eval()
-    gp_model = gp_model.to(dev)
-    gp_model_path = "gp_model.pth"
-    checkpoint = torch.load(gp_model_path)
-    gp_model.load_state_dict(checkpoint['model_state_dict'])
-    # print("gp loaded")
-    epoch = 0
-    checkpoint = None
+    dataloader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=0, collate_fn=collate_wrapper, pin_memory=True)
 
     pbar = tqdm(dataloader)
     ades = []
     fdes = []
+    dists = []
     for batch_num, data in enumerate(pbar):
 
         if np.sum(data.tgt_avail[:, -1]) == 0:
             print("no one have goal")
             continue
 
-        self_poses = torch.tensor(data.history_positions,device=dev).float()
+        self_poses = torch.tensor(data.history_positions,device=dev,dtype=torch.float)
 
         num_peds = 0
         for sequence in data.history_agents:
@@ -90,11 +78,12 @@ def eval_file(path_,file,sfm_ai,dev='cpu'):
         traj_tgt = torch.tensor(data.tgt,device=dev,dtype=torch.float)
         predictions = gp_model(self_poses, neighb_poses)[:, 0, :]
         mean_poses, _ = sfm_ai.get_sfm_predictions(
-            agent_state=self_poses[:, 0, :2] + 0.00 * torch.rand_like(self_poses[:, 0, :2],device=dev),
+            agent_state=self_poses[:, 0, :2],
             neighb_state=neighb_poses[:, :, 0, :2] + 0.01 * torch.rand_like(neighb_poses[:, :, 0, :2],device=dev),
-            agent_vel=self_poses[:, 0, 2:4], neighb_vel=neighb_poses[:, :, 0, 2:4],
+            agent_vel=self_poses[:, 0, 2:4], 
+            neighb_vel=neighb_poses[:, :, 0, 2:4],
             agent_goal=predictions,
-            neighb_goal=lin_model(neighb_poses, neighb_poses_avail), num_threads=6
+            neighb_goal=lin_model(neighb_poses, neighb_poses_avail), num_threads=0
         )
         if len(mean_poses[mean_poses != mean_poses]) != 0:
             print("sfm nans!")
@@ -102,16 +91,16 @@ def eval_file(path_,file,sfm_ai,dev='cpu'):
         mask_goal = torch.tensor(data.tgt_avail[:, -1],device=dev,dtype=torch.bool)
         mask_traj = torch.tensor(data.tgt_avail,device=dev,dtype=torch.bool)
 
-        ade_metric = ade_loss(mean_poses[:, :, :2].detach(), traj_tgt, mask_traj)
-        ades.append(ade_metric.item())
-        dist_err = distance(predictions, gt_goals, mask_goal)
+        ades.append(ade_loss(mean_poses[:, :, :2].detach(), traj_tgt, mask_traj).item())
+        dists.append(distance(predictions, gt_goals, mask_goal))
         fdes.append(distance(mean_poses[:,-1,:2], gt_goals, mask_goal))
         # pbar.set_postfix({'mean_ade': sum(ades)/len(ades)})
     # print('mean_ade', sum(ades)/len(ades))
     pbar.close()
     ade = sum(ades)/len(ades)
-    fde = (sum(fdes)/len(fdes)).data
-    return ade, fde
+    fde = (sum(fdes)/len(fdes)).tolist()
+    dist = (sum(dists)/len(dists)).tolist()
+    return ade, fde, dist
 
 
 
@@ -121,6 +110,13 @@ if __name__ == '__main__':
     dev = 'cpu'
     # init SFM
     sfm_ai = SFM_AI(device=dev)
+    # gp prediction
+    gp_model = AttGoalPredictor()
+    gp_model.eval()
+    gp_model = gp_model.to(dev)
+    gp_model_path = "gp_model.pth"
+    checkpoint = torch.load(gp_model_path)
+    gp_model.load_state_dict(checkpoint['model_state_dict'])
 
     path_ = "pedestrian_forecasting_dataloader/data/test/"
     # get all availible data
@@ -128,8 +124,8 @@ if __name__ == '__main__':
     files = [str(x).replace(path_,"") for x in pathes]
     with torch.no_grad():
         for file in files:
-            ade, fde = eval_file(path_,[file],sfm_ai,dev)
-            print("\nfile",file,"\n\t ade ",ade,"\n\t fde ",fde)
+            ade, fde, dist = eval_file(path_,[file],sfm_ai,gp_model,dev)
+            print("\nfile ",file,"\n\t ade ",ade,"\t fde ",fde,"\t dist ",dist)
     exit()
 
     # "biwi_eth/biwi_eth.txt"
