@@ -76,7 +76,7 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
                     pass
         gt_goals = torch.tensor(data.tgt[:, -1, :],device=dev,dtype=torch.float)
         traj_tgt = torch.tensor(data.tgt,device=dev,dtype=torch.float)
-        predictions = gp_model(self_poses, neighb_poses)[:, 0, :]
+        predictions = gp_model(self_poses, neighb_poses)
         mean_poses, _ = sfm_ai.get_sfm_predictions(
             agent_state=self_poses[:, 0, :2],
             neighb_state=neighb_poses[:, :, 0, :2] + 0.01 * torch.rand_like(neighb_poses[:, :, 0, :2],device=dev),

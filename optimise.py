@@ -3,7 +3,7 @@ from pathlib import Path
 from evaluate import eval_file
 from SFM_AI import SFM_AI
 from ChangedParam import ChangedParam
-from gp_no_map import AttGoalPredictor
+from gp_no_map import AttGoalPredictor, FullAttGoalPredictor
 from scipy.optimize import minimize
 
 def opt_fun(param): 
@@ -15,7 +15,8 @@ def opt_fun(param):
     pathes = list(Path(path_).rglob("*.[tT][xX][tT]"))
     files = [str(x).replace(path_,"") for x in pathes]
     # gp prediction
-    gp_model = AttGoalPredictor()
+    # gp_model = AttGoalPredictor()
+    gp_model = FullAttGoalPredictor()
     gp_model.eval()
     gp_model = gp_model.to(dev)
     gp_model_path = "gp_model.pth"
