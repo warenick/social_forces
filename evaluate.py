@@ -10,7 +10,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
 
-
+cfg["raster_params"]["draw_hist"] = False
+cfg["raster_params"]["use_map"] = False
+cfg["raster_params"]["normalize"] = True
 def lin_model(neigb_states, neigb_avail):
     goals = neigb_states[:, :, 0, 2:4] * 12 + neigb_states[:, :, 0, :2]
     goals[(neigb_avail[:, :, 1] == 0).bool()] = neigb_states[:, :, 0, :2][(neigb_avail[:, :, 1] == 0).bool()]
@@ -58,25 +60,37 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
             print("no one have goal")
             continue
 
-        self_poses = torch.tensor(data.history_positions,device=dev,dtype=torch.float)
-
-        num_peds = 0
+        # self_poses = torch.tensor(data.history_positions,device=dev,dtype=torch.float)
+        b_mask = (np.sum(data.tgt_avail,axis=1)==12)*(np.sum(data.history_av,axis=1)==8)
+        self_poses = torch.tensor(data.history_positions,device=dev,dtype=torch.float)[b_mask] #
+        bs = self_poses.shape[0]
+        if bs<1:
+            print("no one have full history batch")
+            continue
+        num_peds = 0 #
+        i=0 #
         for sequence in data.history_agents:
-            num_peds = max(num_peds, len(sequence))
+            if (b_mask[i]): #
+                num_peds = max(num_peds, len(sequence))
+            i=i+1 #
 
-        neighb_poses = torch.zeros((len(data.history_agents), num_peds, 8, 6),device=dev)
-        neighb_poses_avail = torch.zeros((len(data.history_agents), num_peds, 8),device=dev)
+        neighb_poses = torch.zeros((bs, num_peds, 8, 6),device=dev)
+        neighb_poses_avail = torch.zeros((bs, num_peds, 8),device=dev)
+        i = 0 #
         for i in range(len(data.history_agents)):
-            for j in range(num_peds):
-                try:
-                    neighb_poses[i, j] = torch.tensor(data.history_agents[i][j],device=dev,dtype=torch.float)
-                    neighb_poses_avail[i, j] = torch.tensor(data.history_agents_avail[i][j],device=dev,dtype=torch.float)
-                except:
-                    # ????
-                    pass
-        gt_goals = torch.tensor(data.tgt[:, -1, :],device=dev,dtype=torch.float)
-        traj_tgt = torch.tensor(data.tgt,device=dev,dtype=torch.float)
-        predictions = gp_model(self_poses, neighb_poses)
+            if (b_mask[i]):
+                for j in range(num_peds):
+                    try:
+                        neighb_poses[i, j] = torch.tensor(data.history_agents[i][j],device=dev,dtype=torch.float)
+                        neighb_poses_avail[i, j] = torch.tensor(data.history_agents_avail[i][j],device=dev,dtype=torch.float)
+                    except:
+                        # ????
+                        pass
+            i = i+1 #
+
+        gt_goals = torch.tensor(data.tgt[:, -1, :],device=dev,dtype=torch.float)[b_mask] #
+        traj_tgt = torch.tensor(data.tgt,device=dev,dtype=torch.float)[b_mask] #
+        predictions = gp_model(self_poses, neighb_poses)[:, 0, :]
         mean_poses, _ = sfm_ai.get_sfm_predictions(
             agent_state=self_poses[:, 0, :2],
             neighb_state=neighb_poses[:, :, 0, :2] + 0.01 * torch.rand_like(neighb_poses[:, :, 0, :2],device=dev),
@@ -88,14 +102,14 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
         if len(mean_poses[mean_poses != mean_poses]) != 0:
             print("sfm nans!")
             continue
-        mask_goal = torch.tensor(data.tgt_avail[:, -1],device=dev,dtype=torch.bool)
-        mask_traj = torch.tensor(data.tgt_avail,device=dev,dtype=torch.bool)
+        mask_goal = torch.tensor(data.tgt_avail[:, -1],device=dev,dtype=torch.bool)[b_mask] #
+        mask_traj = torch.tensor(data.tgt_avail,device=dev,dtype=torch.bool)[b_mask] #
 
         ades.append(ade_loss(mean_poses[:, :, :2].detach(), traj_tgt, mask_traj).item())
         dists.append(distance(predictions, gt_goals, mask_goal))
         fdes.append(distance(mean_poses[:,-1,:2], gt_goals, mask_goal))
-        # pbar.set_postfix({'mean_ade': sum(ades)/len(ades)})
-    # print('mean_ade', sum(ades)/len(ades))
+        pbar.set_postfix({' bs ': bs," num peds ":num_peds})
+        # print('bs', bs)
     pbar.close()
     try:
         ade = sum(ades)/len(ades)
