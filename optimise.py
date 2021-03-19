@@ -67,16 +67,17 @@ def opt_fun(param):
 
 if __name__ == '__main__':
 
-    param_list = {
-        "ped_mass": 60,
-        "pedestrians_speed": 1.0,
-        "k":2.3,
-        "lambda":0.59,
-        "A":3.66,
-        "B":0.79,
-        "d":0.65
-        }
-    param = [
+    param_list = {'ped_mass': 61., 'pedestrians_speed': 1.02, 'k': 2.33, 'lambda': 0.58, 'A': 3.69, 'B': 0.77, 'd': 0.63}
+    # param_list = {
+    #     "ped_mass": 60,
+    #     "pedestrians_speed": 1.0,
+    #     "k":2.3,
+    #     "lambda":0.59,
+    #     "A":3.66,
+    #     "B":0.79,
+    #     "d":0.65
+    #     }
+   param = [
         param_list["ped_mass"],
         param_list["pedestrians_speed"],
         param_list["k"],
