@@ -5,7 +5,7 @@ from SFM_AI import SFM_AI
 from pathlib import Path
 from pedestrian_forecasting_dataloader.dataloader import DatasetFromTxt, collate_wrapper
 from pedestrian_forecasting_dataloader.config import cfg
-from gp_no_map import AttGoalPredictor
+from gp_no_map import AttGoalPredictor, LSTM_simple
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
@@ -48,14 +48,15 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
     dataset = DatasetFromTxt(path_, file, cfg)
     print("len dataset:", len(dataset))
     # dataloader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=12, collate_fn=collate_wrapper, pin_memory=True)
-    dataloader = DataLoader(dataset, batch_size=256, shuffle=False, num_workers=0, collate_fn=collate_wrapper, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=256, shuffle=True, num_workers=0, collate_fn=collate_wrapper, pin_memory=True)
 
     pbar = tqdm(dataloader)
     ades = []
     fdes = []
     dists = []
     for batch_num, data in enumerate(pbar):
-
+        if batch_num > 0.05*len(dataloader):
+            break
         if np.sum(data.tgt_avail[:, -1]) == 0:
             print("no one have goal")
             continue
@@ -76,7 +77,7 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
 
         neighb_poses = torch.zeros((bs, num_peds, 8, 6),device=dev)
         neighb_poses_avail = torch.zeros((bs, num_peds, 8),device=dev)
-        i = 0 #
+        # i = 0 #
         for i in range(len(data.history_agents)):
             if (b_mask[i]):
                 for j in range(num_peds):
@@ -86,17 +87,17 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
                     except:
                         # ????
                         pass
-            i = i+1 #
+            # i = i+1 #
 
         gt_goals = torch.tensor(data.tgt[:, -1, :],device=dev,dtype=torch.float)[b_mask] #
         traj_tgt = torch.tensor(data.tgt,device=dev,dtype=torch.float)[b_mask] #
-        predictions = gp_model(self_poses, neighb_poses)
+        # predictions = gp_model(self_poses, neighb_poses)
         mean_poses, _ = sfm_ai.get_sfm_predictions(
             agent_state=self_poses[:, 0, :2],
-            neighb_state=neighb_poses[:, :, 0, :2] + 0.01 * torch.rand_like(neighb_poses[:, :, 0, :2],device=dev),
+            neighb_state=neighb_poses[:, :, 0, :2] + 0.05 * torch.rand_like(neighb_poses[:, :, 0, :2] ,device=dev),
             agent_vel=self_poses[:, 0, 2:4], 
             neighb_vel=neighb_poses[:, :, 0, 2:4],
-            agent_goal=predictions,
+            agent_goal=gt_goals+ 0.05 * torch.rand_like(gt_goals),
             neighb_goal=lin_model(neighb_poses, neighb_poses_avail), num_threads=0
         )
         if len(mean_poses[mean_poses != mean_poses]) != 0:
@@ -106,7 +107,7 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
         mask_traj = torch.tensor(data.tgt_avail,device=dev,dtype=torch.bool)[b_mask] #
 
         ades.append(ade_loss(mean_poses[:, :, :2].detach(), traj_tgt, mask_traj).item())
-        dists.append(distance(predictions, gt_goals, mask_goal))
+        dists.append(distance(gt_goals, gt_goals, mask_goal))
         fdes.append(distance(mean_poses[:,-1,:2], gt_goals, mask_goal))
         pbar.set_postfix({' bs ': bs," num peds ":num_peds})
         # print('bs', bs)
@@ -132,7 +133,7 @@ if __name__ == '__main__':
     # init SFM
     sfm_ai = SFM_AI(device=dev)
     # gp prediction
-    gp_model = AttGoalPredictor()
+    gp_model = LSTM_simple()
     gp_model.eval()
     gp_model = gp_model.to(dev)
     gp_model_path = "gp_model.pth"

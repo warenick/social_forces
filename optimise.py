@@ -3,7 +3,7 @@ from pathlib import Path
 from evaluate import eval_file
 from SFM_AI import SFM_AI
 from ChangedParam import ChangedParam
-from gp_no_map import AttGoalPredictor, FullAttGoalPredictor
+from gp_no_map import AttGoalPredictor, FullAttGoalPredictor, LSTM_simple
 from scipy.optimize import minimize
 
 def opt_fun(param): 
@@ -16,7 +16,7 @@ def opt_fun(param):
     files = [str(x).replace(path_,"") for x in pathes]
     # gp prediction
     # gp_model = AttGoalPredictor()
-    gp_model = FullAttGoalPredictor()
+    gp_model = LSTM_simple()
     gp_model.eval()
     gp_model = gp_model.to(dev)
     gp_model_path = "gp_model.pth"
@@ -50,6 +50,13 @@ def opt_fun(param):
                 ades.append(ade)
                 fdes.append(fde)
                 dists.append(dist)
+            # for file in files:
+            # ade, fde, dist = eval_file(path_, files, sfm_ai, gp_model, dev)
+            # print("\nfile ",files,"\n\t ade ",f'{ade:.3f}',"\t fde ",f'{fde:.3f}', "\t dist ",f'{dist:.3f}')
+            # sfile.write("\nfile "+str(files)+"\n\t ade "+f'{ade:.3f}'+"\t fde "+f'{fde:.3f}'+"\t dist "+f'{dist:.3f}')
+            # ades.append(ade)
+            # fdes.append(fde)
+            # dists.append(dist)
             
             ades = sum(ades)/len(ades)
             fdes = sum(fdes)/len(fdes)
@@ -86,7 +93,8 @@ if __name__ == '__main__':
         param_list["d"]
 
     ]
-    res = minimize(opt_fun,param,method='nelder-mead',bounds=(1e-6,1e3) ,options={"maxiter":1000,"adaptive":True,'xatol':1e-8,'disp':True})
+    res = minimize(opt_fun, param, method='nelder-mead', bounds=(1e-6,1e3),
+                   options={"maxiter":1000,"adaptive":True,'xatol':1e-8,'disp':True})
     
     print(res.x)
 
