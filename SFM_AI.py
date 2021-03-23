@@ -24,7 +24,11 @@ class SFM_AI():
         k, m = divmod(len(a), n)
         return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
-    def get_sfm_predictions(self, agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, neighb_avail = None, future_horizon=12, num_threads=0):
+    def calc_speed_vect(self,state,goal,future_horizon):
+        velocity = torch.abs((goal-state)/future_horizon)
+        return velocity.norm(dim=1)
+
+    def get_sfm_predictions(self, agent_state, neighb_state, agent_vel, neighb_vel, agent_goal, neighb_goal, neighb_avail = None, future_horizon=12, num_threads=0,calc_speeds = False):
         # agent_state shape: bs, 2 torch.tensor
         # neighb_state shape  list of len bs, each elem is tensor with shape (n,2)
         # agent_vel: bs, 2 torch.tensor
@@ -60,10 +64,16 @@ class SFM_AI():
                 else:
                     local_state = state[chunk].clone()
                     local_goals = goals[chunk]
+                speed_vect = None
+                if calc_speeds:
+                    speed_vect = self.calc_speed_vect(local_state[:,:2],local_goals,future_horizon)
+                    speed_vect*=self.param.socForceRobotPerson["k_calc_speed"]# 1.3
+                    speed_vect/=self.sfm.param.DT
+                    # print(speed_vect)
                 for step in range(future_horizon):
-                    rep_force, attr_force = self.sfm.calc_forces(local_state, local_goals)
+                    rep_force, attr_force = self.sfm.calc_forces(local_state, local_goals,speed_vect)
                     F = rep_force+attr_force
-                    local_state = self.sfm.pose_propagation(F, local_state.clone())
+                    local_state = self.sfm.pose_propagation(F, local_state.clone(),speed_vect)
                     local_forces = torch.cat((rep_force[0],attr_force[0]),dim=0)
                     step_stacked_forces.append(local_forces.tolist())
                     step_stacked_state.append(local_state[0].tolist())

@@ -9,10 +9,8 @@ class SFM:
         self.rep_f = RepulsiveForces(self.param, device=device)
         self.device = device
 
-    def pose_propagation(self, force, state):
+    def pose_propagation(self, force, state, speed_vect = None):
         DT = self.param.DT
-        ps = self.param.pedestrians_speed
-        rs = self.param.robot_speed
         vx_vy_uncl = state[:, 2:4] + (force[:,:2]*DT)
         dx_dy = state[:, 2:4]*DT + (force[:,:2]*(DT**2))*0.5
 
@@ -20,12 +18,22 @@ class SFM:
         # torch.sqrt(vx_vy[:,0:1]**2 + vx_vy[:,1:2]**2)
         
         # TODO: switch moving model
-
         pose_prop_v_unclamped = vx_vy_uncl.norm(dim=1)
-        pose_prop_v = torch.clamp(pose_prop_v_unclamped, min=-ps, max=ps)
-        pose_prop_v[0] = torch.clamp(pose_prop_v_unclamped[0], min=-rs, max=rs)
-        vx_vy = torch.clamp(vx_vy_uncl, min=-ps, max=ps)
-        vx_vy[0, :] = torch.clamp(vx_vy_uncl[0, :], min=-rs, max=rs)
+        # self.param.robot_speed = speed_vect[0]        
+        # speed_vect = None
+        if speed_vect == None:
+            ps = self.param.pedestrians_speed
+            rs = self.param.robot_speed
+            pose_prop_v = torch.clamp(pose_prop_v_unclamped, min=-ps, max=ps)
+            pose_prop_v[0] = torch.clamp(pose_prop_v_unclamped[0], min=-rs, max=rs) #todo: fix robot speed  double clamp
+            vx_vy = torch.clamp(vx_vy_uncl, min=-ps, max=ps)
+            vx_vy[0, :] = torch.clamp(vx_vy_uncl[0, :], min=-rs, max=rs)
+        else:
+            pose_prop_v = torch.zeros_like(pose_prop_v_unclamped)
+            vx_vy = torch.zeros_like(vx_vy_uncl)
+            for n in range(len(pose_prop_v_unclamped)): #TODO: refactoring
+                pose_prop_v[n] = torch.clamp(pose_prop_v_unclamped[n], min=-speed_vect[n], max=speed_vect[n])    
+                vx_vy[n] = torch.clamp(vx_vy_uncl[n], min=-speed_vect[n], max=speed_vect[n])
 
         dr = dx_dy.norm(dim=1)  # torch.sqrt(dx_dy[:,0:1]**2 + dx_dy[:,1:2]**2)
         mask = (pose_prop_v * DT < dr)  # * torch.ones(state.shape[0])
@@ -65,25 +73,31 @@ class SFM:
         # print (PG, policy)
         return B
 
-    def calc_forces(self, state, goals):
+    def calc_forces(self, state, goals, speed_vect = None):
         rep_force = self.rep_f.calc_rep_forces(
-            state[:, 0:2], state[:, 2:4], param_lambda=1)
+            state[:, 0:2], state[:, 2:4])
         # rep_force[0] = 0*rep_force[0]
-        attr_force = self.force_goal(state, goals)
+        attr_force = self.force_goal(state, goals,speed_vect)
         return rep_force, attr_force
 
-    def force_goal(self, input_state, goal):
+    def force_goal(self, input_state, goal, speed_vect = None):
         num_ped = len(input_state)
-        k = self.param.socForcePersonPerson["k"] * torch.ones(num_ped,device=self.device)
-        k[0] = self.param.socForceRobotPerson["k"]
-        k  = k.view(-1,1)
-
-        ps = self.param.pedestrians_speed
-        rs = self.param.robot_speed
+        rt = self.param.socForcePersonPerson["relaxation_time"] * torch.ones(num_ped,device=self.device)
+        # rt[0] = self.param.socForceRobotPerson["relaxation_time"]
+        rt  = rt.view(-1,1)
         v_desired_x_y = goal[:, 0:2] - input_state[:, 0:2]
         v_desired_ = torch.sqrt(v_desired_x_y.clone()[:, 0:1]**2 + v_desired_x_y.clone()[:, 1:2]**2)
-        v_desired_x_y[1:] *= ps / v_desired_[1:]
-        v_desired_x_y[0] *= rs / v_desired_[0]
+        # self.param.robot_speed = speed_vect[0][0]
+        # speed_vect = None
+        if speed_vect == None:
+            ps = self.param.pedestrians_speed
+            rs = self.param.robot_speed
+            v_desired_x_y[1:] *= ps / v_desired_[1:]
+            v_desired_x_y[0] *= rs / v_desired_[0]
+        else:
+            v_desired_x_y *=speed_vect.unsqueeze(1)/v_desired_
+            # TODO: calc speed
         # print (pedestrians_speed)
-        F_attr = k * (v_desired_x_y - input_state[:, 2:])
+        F_attr =  rt*(v_desired_x_y - input_state[:, 2:])
+        F_attr[F_attr!=F_attr]=0
         return F_attr

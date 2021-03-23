@@ -68,7 +68,7 @@ class RepulsiveForces():
         if self.aux2 is None:
             self.aux2 = self.aux1.clone().t()
 
-    def calc_rep_forces(self, state, velocity_state, param_lambda):
+    def calc_rep_forces(self, state, velocity_state):
         num_ped = state.shape[0]-1
         if num_ped != self.num_ped:
             self.change_num_of_ped(num_ped)
@@ -77,7 +77,6 @@ class RepulsiveForces():
             torch.ones(num_ped+1, num_ped+1,device=self.device)
         pr[0, :] = self.param.socForceRobotPerson["d"]
         pr[:, 0] = self.param.socForceRobotPerson["d"]
-        pm = self.param.ped_mass
         betta = self.param.socForcePersonPerson["B"] * \
             torch.ones(num_ped+1, num_ped+1,device=self.device)
         betta[0, :] = self.param.socForceRobotPerson["B"]
@@ -113,4 +112,5 @@ class RepulsiveForces():
         force = force.matmul(self.aux2)
         # yaw_zeros = torch.zeros(len(force), 1)
         # force = torch.cat((force, yaw_zeros), dim=1)
+        force[force!=force]=0
         return force

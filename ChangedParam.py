@@ -20,10 +20,10 @@ class ChangedParam:
         self.DT = 0.4
         # social force params
         pl = param_list
-        self.ped_mass = pl["ped_mass"]
-        self.pedestrians_speed = pl["pedestrians_speed"]
+        # self.ped_mass = pl["ped_mass"]
+        self.pedestrians_speed = 1.4#pl["pedestrians_speed"]
         self.robot_speed = self.pedestrians_speed
-        self.socForceRobotPerson = {"k": pl["k"], "lambda": pl["lambda"], "A": pl["A"], "B": pl["B"], "d": pl["d"]}
+        self.socForceRobotPerson = {"relaxation_time": pl["relaxation_time"], "A": pl["A"], "B": pl["B"], "d": pl["d"],"k_calc_speed":pl["k_calc_speed"]}
         self.socForcePersonPerson = self.socForceRobotPerson
         # self.socForcePersonPerson = {"k":5.5, "lambda":1.5, "A":8., "B":0.4,"d":0.01}
         # self.ped_mass = 60

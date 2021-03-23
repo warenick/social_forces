@@ -23,8 +23,8 @@ def ade_loss(pred_traj, gt, mask):
     assert gt.ndim == 3
     assert mask.ndim == 2
     error = pred_traj - gt
-    norm = torch.norm(error, dim=2)[mask]
-    return torch.mean(norm)
+    norm = torch.norm(error, dim=2)
+    return torch.mean(norm[mask]), norm
 
 
 def distance(prediction, gt, tgt_avail=None):
@@ -54,18 +54,19 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
     ades = []
     fdes = []
     dists = []
+    ade_by_step = []
     for batch_num, data in enumerate(pbar):
         # if batch_num > 0.1*len(dataloader):
         #     break
         if np.sum(data.tgt_avail[:, -1]) == 0:
-            print("no one have goal")
+            print("no one have full futire in batch")
             continue
 
         b_mask = (np.sum(data.tgt_avail,axis=1)==12)*(np.sum(data.history_av,axis=1)==8)
         self_poses = torch.tensor(data.history_positions,device=dev,dtype=torch.float)[b_mask] #
         bs = self_poses.shape[0]
         if bs<1:
-            print("no one have full history batch")
+            print("no one have full history in batch")
             continue
         num_peds = 0 #
         i=0 #
@@ -73,8 +74,8 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
             if (b_mask[i]): #
                 num_peds = max(num_peds, len(sequence))
             i=i+1 #
-
-        neighb_poses = torch.zeros((bs, num_peds, 8, 6),device=dev)
+        # torch.mean()
+        neighb_poses = -100*torch.ones((bs, num_peds, 8, 6),device=dev)
         neighb_poses_avail = torch.zeros((bs, num_peds, 8),device=dev)
         for i in range(len(data.history_agents)):
             if (b_mask[i]):
@@ -91,20 +92,21 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
         predictions = gp_model(self_poses, neighb_poses)
         mean_poses, _ = sfm_ai.get_sfm_predictions(
             agent_state=self_poses[:, 0, :2],
-            neighb_state=neighb_poses[:, :, 0, :2] + 0.05 * torch.rand_like(neighb_poses[:, :, 0, :2] ,device=dev),
+            neighb_state=neighb_poses[:, :, 0, :2],# + 0.0001 * torch.rand_like(neighb_poses[:, :, 0, :2] ,device=dev),
             agent_vel=self_poses[:, 0, 2:4], 
             neighb_vel=neighb_poses[:, :, 0, 2:4],
             # agent_goal=gt_goals+ 0.05 * torch.rand_like(gt_goals),
-            agent_goal=predictions+ 0.05 * torch.rand_like(gt_goals),
-            neighb_goal=lin_model(neighb_poses, neighb_poses_avail), num_threads=0
+            agent_goal=predictions,#+ 0.0001 * torch.rand_like(gt_goals),
+            neighb_goal=lin_model(neighb_poses, neighb_poses_avail), num_threads=0, calc_speeds=True
         )
         if len(mean_poses[mean_poses != mean_poses]) != 0:
             print("sfm nans!")
             continue
         mask_goal = torch.tensor(data.tgt_avail[:, -1],device=dev,dtype=torch.bool)[b_mask] #
         mask_traj = torch.tensor(data.tgt_avail,device=dev,dtype=torch.bool)[b_mask] #
-
-        ades.append(ade_loss(mean_poses[:, :, :2].detach(), traj_tgt, mask_traj).item())
+        ade, ade_step = ade_loss(mean_poses[:, :, :2].detach(), traj_tgt, mask_traj)
+        ades.append(ade.item())
+        ade_by_step.append(ade_step.permute(1,0).mean(axis=1))
         dists.append(distance(predictions, gt_goals, mask_goal))
         fdes.append(distance(mean_poses[:,-1,:2], gt_goals, mask_goal))
         pbar.set_postfix({' bs ': bs," num peds ":num_peds})
@@ -114,13 +116,16 @@ def eval_file(path_,file,sfm_ai,gp_model,dev='cpu'):
         ade = sum(ades)/len(ades)
         fde = (sum(fdes)/len(fdes)).tolist()
         dist = (sum(dists)/len(dists)).tolist()
+        ade_s = torch.stack(ade_by_step).permute(1,0).mean(axis=1).tolist()
+        # ade_s = ()
     except:
         print("dividing by zero")
         ade = 10
         fde = 10
         dist = 10
+        ade_s = 10
 
-    return ade, fde, dist
+    return ade, fde, dist, ade_s
 
 
 
