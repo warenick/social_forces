@@ -38,7 +38,7 @@ class RepulsiveForces():
                                 [-1,-1]
                                 [0, -1]]
                 new state_concated:         
-                            [[1,  0, 1,  0, 1,  0, 1,  0]
+                               [[1,  0, 1,  0, 1,  0, 1,  0]
                                 [2,  1, 2,  1, 2,  1, 2,  1]
                                 [-1,-1, -1,-1, -1,-1, -1,-1]
                                 [0, -1, 0, -1, 0, -1, 0, -1]]
@@ -68,7 +68,7 @@ class RepulsiveForces():
         if self.aux2 is None:
             self.aux2 = self.aux1.clone().t()
 
-    def calc_rep_forces(self, state, velocity_state):
+    def calc_rep_forces(self, state, velocity_state, goal):
         num_ped = state.shape[0]-1
         if num_ped != self.num_ped:
             self.change_num_of_ped(num_ped)
@@ -88,6 +88,11 @@ class RepulsiveForces():
 
         state_concated = state.clone().matmul(self.aux1)
         state_concated_t = state.reshape(1, -1)
+
+# delta = ((ax1-ax0)*( bx1-bx0)+( ay1-ay0)*( by1-by0))/(| a | * | b|);
+# | a | = √[(ax1-ax0 )^2 + ( ay1-ay0)^2]
+# k_group =min(delta/self.param.agroup,1)
+# f = f*k_group
         for i in range(0, state.shape[0]-1):
             state_concated_t = torch.cat(
                 [state_concated_t, state.reshape(1, -1)])
@@ -97,7 +102,22 @@ class RepulsiveForces():
         [ 1.,  0.,  2.,  1., -1., -1.,  0., -1.],
         [ 1.,  0.,  2.,  1., -1., -1.,  0., -1.]]
         '''
-        delta_pose = (-state_concated_t + state_concated) + 1e-6
+        g_s_diff = (goal-state)
+        lens = torch.norm(g_s_diff,dim=1)
+        lens_r = lens.unsqueeze(1).repeat(1,lens.shape[0])
+
+        znam = (lens*lens_r)+1e-9
+        A1 = g_s_diff.repeat(1,lens.shape[0])
+        A2 = g_s_diff.reshape(-1).unsqueeze(0).repeat(lens.shape[0],1)
+        A3 = A1*A2
+        chis = torch.matmul(A3,self.aux)
+        angle_delta = torch.acos(chis/znam)
+        angle_delta[angle_delta!=angle_delta]=0
+        angle_delta = torch.abs(angle_delta)
+        angle_delta = torch.clamp(angle_delta/self.param.group_angle,max=1.)
+        angle_delta=(self.aux@angle_delta).T
+
+        delta_pose = (-state_concated_t + state_concated) #+ 1e-6
 
         dist_squared = delta_pose ** 2
         dist = (dist_squared.matmul(self.aux))
@@ -107,10 +127,11 @@ class RepulsiveForces():
         force_amplitude = alpha * torch.exp((pr - dist) / betta)
         force = force_amplitude.matmul(
             self.auxullary)*(delta_pose / (dist).matmul(self.auxullary)) # * anisotropy
-
         force = (force * ((self.auxullary - 1) * -1))
+        # if ((angle_delta>0.2)*(angle_delta<0.7)).any():
+        #     print(angle_delta)
+        #     pass
+        force = force*angle_delta
         force = force.matmul(self.aux2)
-        # yaw_zeros = torch.zeros(len(force), 1)
-        # force = torch.cat((force, yaw_zeros), dim=1)
         force[force!=force]=0
         return force

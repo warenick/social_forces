@@ -16,10 +16,10 @@ class ChangedParam:
 
         self.area_size = 10
         self.robot_init_pose = torch.tensor(([1.5, 2.0]), device = self.device)
-        
         self.DT = 0.4
         # social force params
         pl = param_list
+        self.group_angle = pl["group_angle"]
         # self.ped_mass = pl["ped_mass"]
         self.pedestrians_speed = 1.4#pl["pedestrians_speed"]
         self.robot_speed = self.pedestrians_speed

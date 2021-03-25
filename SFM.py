@@ -75,10 +75,13 @@ class SFM:
 
     def calc_forces(self, state, goals, speed_vect = None):
         rep_force = self.rep_f.calc_rep_forces(
-            state[:, 0:2], state[:, 2:4])
-        # rep_force[0] = 0*rep_force[0]
+            state[:, 0:2], state[:, 2:4],goals)
         attr_force = self.force_goal(state, goals,speed_vect)
         return rep_force, attr_force
+
+    # def calc_group_k(self,state,goal):
+    #     lines = torch.tensor([state[:,:2],goal[:,:2])
+
 
     def force_goal(self, input_state, goal, speed_vect = None):
         num_ped = len(input_state)
